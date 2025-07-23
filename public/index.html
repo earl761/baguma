@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center pt-10">
-  <!-- ───── Name picker modal ───── -->
+  <!-- Name picker modal -->
   <div id="nameModal" class="fixed inset-0 flex items-center justify-center bg-black/50">
     <div class="bg-white rounded p-6 w-80 shadow-lg">
       <h2 class="text-xl font-semibold mb-4">Choose your name</h2>
@@ -21,7 +21,7 @@
     </div>
   </div>
 
-  <!-- ───── Main UI ───── -->
+  <!-- Main UI -->
   <h1 class="text-3xl font-bold mb-6">Hidden‑Number Voting</h1>
 
   <div id="numbers" class="grid grid-cols-3 gap-4"></div>
@@ -43,100 +43,82 @@
   const voterNames = ['Jalia','Lydia','Florence','Aloysius','Christian','Alice'];
   let currentName = null;
 
-  // ---------- helpers ----------
   const qs = sel => document.querySelector(sel);
   const ce = (tag, cls='', txt='') => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (txt) e.textContent = txt;
-    return e;
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (txt) el.textContent = txt;
+    return el;
   };
 
-  // ---------- modal logic ----------
   qs('#nameBtn').onclick = () => {
     const name = qs('#nameSelect').value;
     if (!voterNames.includes(name)) {
-      qs('#nameErr').textContent = 'Please select your exact name.';
+      qs('#nameErr').textContent = 'Please select your exact name';
       qs('#nameErr').classList.remove('hidden');
       return;
     }
     currentName = name;
     qs('#nameModal').classList.add('hidden');
-    render();               // initial state fetch / poll begins
+    render();
   };
 
-  // ---------- polling ----------
   async function fetchState() {
-    const r = await fetch(`${API}/state`);
+    const r = await fetch(API + '/state');
     if (!r.ok) throw new Error('state fetch failed');
     return r.json();
   }
 
   async function castVote(num) {
-    const rq = {
-      method : 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body   : JSON.stringify({ name: currentName, number: num })
-    };
-    const r = await fetch(`${API}/vote`, rq);
+    const r = await fetch(API + '/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: currentName, number: num })
+    });
     const d = await r.json();
-    if (!r.ok) {
-      alert(d.error || 'Vote failed');
-    }
+    if (!r.ok) alert(d.error || 'Vote failed');
   }
 
-  // ---------- UI render ----------
   async function render() {
     const data = await fetchState();
 
-    // number buttons – render once
     if (!qs('#numbers').hasChildNodes()) {
       for (let i = 1; i <= 6; i++) {
-        const b = ce('button',
-          'bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', '?');
-        b.id = `btn-${i}`;
+        const b = ce('button','bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', String(i));
+        b.id = 'btn-' + i;
         b.onclick = () => castVote(i).then(render);
         qs('#numbers').appendChild(b);
       }
     }
 
-    // update buttons
     for (let i = 1; i <= 6; i++) {
-      const btn = qs(`#btn-${i}`);
-      const takenBy = data.numbers[i];
-      btn.textContent = takenBy ? i : '?';
+      const btn = qs('#btn-' + i);
+      const takenBy = data.numbers[String(i)];
       btn.disabled = Boolean(takenBy) || data.voters[currentName]?.has_voted;
       btn.classList.toggle('bg-gray-400', Boolean(takenBy));
       btn.classList.toggle('cursor-not-allowed', btn.disabled);
     }
 
-    // voter list
     const vList = qs('#voterList'); vList.innerHTML = '';
     voterNames.forEach(n => {
-      const li = ce('li', '', n);
+      const li = ce('li','',n);
       if (data.voters[n]?.has_voted) li.classList.add('line-through','text-gray-500');
       vList.appendChild(li);
     });
 
-    // info text
     const remaining = 6 - Object.keys(data.numbers).length;
-    qs('#info').textContent =
-      remaining ? `${remaining} vote${remaining>1?'s':''} remaining…`
-                : 'All votes cast!';
+    qs('#info').textContent = remaining ? remaining + ' vote' + (remaining>1?'s':'') + ' remaining…' : 'All votes cast!';
 
-    // final results
     if (data.all_voted) {
       qs('#resultsWrap').classList.remove('hidden');
-      const res = qs('#results'); res.innerHTML='';
-      Object.entries(data.numbers).sort(([a],[b])=>a-b)
-        .forEach(([num,name]) => res.appendChild(
-          ce('li','', `${name} picked number ${num}`)
-        ));
+      const res = qs('#results'); res.innerHTML = '';
+      Object.entries(data.numbers).sort((a,b)=>a[0]-b[0]).forEach(([num,name])=>{
+        res.appendChild(ce('li','',`${name} picked number ${num}`));
+      });
     }
   }
 
-  // continuous polling (every 4 s) once name chosen
-  setInterval(() => currentName && render(), 4000);
+  setInterval(()=> currentName && render(), 4000);
 </script>
 </body>
 </html>

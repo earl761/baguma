@@ -13,14 +13,9 @@ export default async (req) => {
   if (!name || typeof number !== 'number')
     return new Response(JSON.stringify({ error: 'name and number required' }), { status: 400 });
 
-  const store  = getStore('votes');
-  const ballot = (await store.getJSON('ballot')) || {};
+  const store = getStore('votes');
+  const ballot = (await store.getJSON('ballot')) || { voters:{}, numbers:{} };
 
-  // defensive defaults
-  ballot.voters  ??= {};
-  ballot.numbers ??= {};
-
-  // validation
   if (!ballot.voters[name])
     return new Response(JSON.stringify({ error: 'Unknown voter' }), { status: 400 });
 
@@ -30,12 +25,11 @@ export default async (req) => {
   if (ballot.numbers[number])
     return new Response(JSON.stringify({ error: 'Number already taken' }), { status: 409 });
 
-  // commit the vote
-  ballot.voters[name] = { has_voted: true, number };
+  ballot.voters[name] = { has_voted:true, number };
   ballot.numbers[number] = name;
-  await store.setJSON('ballot', ballot);     // last‑write‑wins; fine for 6 users
+  await store.setJSON('ballot', ballot);
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return new Response(JSON.stringify({ ok:true }), {
     headers: { 'content-type': 'application/json' }
   });
 };

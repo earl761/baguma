@@ -4,14 +4,13 @@ import { getStore } from '@netlify/blobs';
 const VOTERS = ['Jalia', 'Lydia', 'Florence', 'Aloysius', 'Christian', 'Alice'];
 
 export default async () => {
-  const store  = getStore('votes');          // bucket name "votes"
-  let   ballot = await store.getJSON('ballot');
+  const store = getStore('votes');
+  let ballot = await store.getJSON('ballot');
 
-  // First run → create the initial, empty ballot.
   if (!ballot) {
     ballot = {
-      voters : Object.fromEntries(VOTERS.map(n => [n, { has_voted: false, number: null }])),
-      numbers: {}                            // number ➜ name
+      voters: Object.fromEntries(VOTERS.map(n => [n, { has_voted: false, number: null }])),
+      numbers: {}
     };
     await store.setJSON('ballot', ballot);
   }
