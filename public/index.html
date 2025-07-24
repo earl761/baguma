@@ -23,6 +23,7 @@
   <h1 class="text-3xl font-bold mb-6">Hidden‑Number Voting</h1>
   <div id="numbers" class="grid grid-cols-3 gap-4"></div>
   <p id="info" class="mt-6 text-lg"></p>
+  <button id="resetBtn" class="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 hidden">Reset All Votes</button>
 
   <section class="mt-8">
     <h2 class="text-xl font-semibold mb-2">Voters</h2>
@@ -59,6 +60,9 @@
     render();
   };
 
+  // Add reset button click handler
+  qs('#resetBtn').onclick = resetVotes;
+
   async function fetchState() {
     const r = await fetch(API + '/state');
     if (!r.ok) throw new Error('state fetch failed');
@@ -66,13 +70,42 @@
   }
 
   async function castVote(num) {
-    const r = await fetch(API + '/vote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: currentName, number: num })
-    });
-    const d = await r.json();
-    if (!r.ok) alert(d.error || 'Vote failed');
+    try {
+      const r = await fetch(API + '/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: currentName, number: num })
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        alert(d.error || 'Vote failed');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      alert('Network error. Please try again.');
+      return false;
+    }
+  }
+
+  async function resetVotes() {
+    if (!confirm('Are you sure you want to reset all votes? This cannot be undone.')) {
+      return;
+    }
+    try {
+      const r = await fetch(API + '/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (r.ok) {
+        await render();
+        alert('All votes have been reset.');
+      } else {
+        alert('Failed to reset votes.');
+      }
+    } catch (error) {
+      alert('Network error. Please try again.');
+    }
   }
 
   async function render() {
@@ -82,7 +115,20 @@
       for (let i = 1; i <= 6; i++) {
         const b = ce('button','bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', String(i));
         b.id = 'btn-' + i;
-        b.onclick = () => castVote(i).then(render);
+        b.onclick = async () => {
+          // Disable button during voting to prevent double-clicks
+          b.disabled = true;
+          b.textContent = '...';
+          
+          const success = await castVote(i);
+          if (success) {
+            await render(); // Refresh immediately after successful vote
+          } else {
+            // Re-enable button if vote failed
+            b.disabled = false;
+            b.textContent = String(i);
+          }
+        };
         qs('#numbers').appendChild(b);
       }
     }
@@ -107,10 +153,13 @@
 
     if (data.all_voted) {
       qs('#resultsWrap').classList.remove('hidden');
+      qs('#resetBtn').classList.remove('hidden');
       const res = qs('#results'); res.innerHTML = '';
       Object.entries(data.numbers).sort((a,b)=>a[0]-b[0]).forEach(([num,name])=>{
         res.appendChild(ce('li','',`${name} picked number ${num}`));
       });
+    } else {
+      qs('#resetBtn').classList.add('hidden');
     }
   }
 

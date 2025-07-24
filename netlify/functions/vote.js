@@ -1,28 +1,56 @@
-import { getJSON, setJSON } from '@netlify/blobs';
+import { getStore } from '@netlify/blobs';
 
-const BUCKET = 'votes';
-const KEY    = 'ballot';
+const STORE_NAME = 'votes';
+const KEY = 'ballot';
 
 export default async (req) => {
   if (req.method !== 'POST')
-    return new Response('Method Not Allowed', { status: 405 });
+    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { 
+      status: 405,
+      headers: { 'content-type': 'application/json' }
+    });
 
-  const { name, number } = await req.json();
+  try {
+    const { name, number } = await req.json();
 
-  let ballot = await getJSON(BUCKET, KEY) || { voters:{}, numbers:{} };
+    if (!name || !number) {
+      return new Response(JSON.stringify({ error: 'Name and number are required' }), { 
+        status: 400,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
 
-  if (!ballot.voters[name])
-    return new Response(JSON.stringify({ error:'Unknown voter' }), { status:400 });
-  if (ballot.voters[name].has_voted)
-    return new Response(JSON.stringify({ error:'Already voted' }), { status:409 });
-  if (ballot.numbers[number])
-    return new Response(JSON.stringify({ error:'Number taken' }), { status:409 });
+    const store = getStore(STORE_NAME);
+     let ballot = await store.get(KEY, { type: 'json' }) || { voters:{}, numbers:{} };
 
-  ballot.voters[name] = { has_voted:true, number };
-  ballot.numbers[number] = name;
-  await setJSON(BUCKET, KEY, ballot);
+     if (!ballot.voters[name])
+       return new Response(JSON.stringify({ error:'Unknown voter' }), { 
+         status:400,
+         headers: { 'content-type': 'application/json' }
+       });
+     if (ballot.voters[name].has_voted)
+       return new Response(JSON.stringify({ error:'You have already voted' }), { 
+         status:409,
+         headers: { 'content-type': 'application/json' }
+       });
+     if (ballot.numbers[number])
+       return new Response(JSON.stringify({ error:'Number already taken' }), { 
+         status:409,
+         headers: { 'content-type': 'application/json' }
+       });
 
-  return new Response(JSON.stringify({ ok:true }), {
-    headers:{ 'content-type':'application/json' }
-  });
+     // Atomic update to prevent race conditions
+     ballot.voters[name] = { has_voted:true, number };
+     ballot.numbers[number] = name;
+     await store.setJSON(KEY, ballot);
+
+    return new Response(JSON.stringify({ ok:true }), {
+      headers:{ 'content-type':'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Invalid request data' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
+    });
+  }
 };
