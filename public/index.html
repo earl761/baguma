@@ -112,25 +112,34 @@
     const data = await fetchState();
 
     if (!qs('#numbers').hasChildNodes()) {
-      for (let i = 1; i <= 6; i++) {
-        const b = ce('button','bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', String(i));
-        b.id = 'btn-' + i;
+      // Create array of numbers and shuffle them
+      const numbers = [1, 2, 3, 4, 5, 6];
+      // Fisher-Yates shuffle algorithm
+      for (let i = numbers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+      }
+      
+      // Create buttons in shuffled order
+      numbers.forEach(num => {
+        const b = ce('button','bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', String(num));
+        b.id = 'btn-' + num;
         b.onclick = async () => {
           // Disable button during voting to prevent double-clicks
           b.disabled = true;
           b.textContent = '...';
           
-          const success = await castVote(i);
+          const success = await castVote(num);
           if (success) {
             await render(); // Refresh immediately after successful vote
           } else {
             // Re-enable button if vote failed
             b.disabled = false;
-            b.textContent = String(i);
+            b.textContent = String(num);
           }
         };
         qs('#numbers').appendChild(b);
-      }
+      });
     }
 
     for (let i = 1; i <= 6; i++) {
