@@ -120,26 +120,27 @@
         [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
       }
       
-      // Create buttons in shuffled order
-      numbers.forEach(num => {
-        const b = ce('button','bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', String(num));
-        b.id = 'btn-' + num;
-        b.onclick = async () => {
-          // Disable button during voting to prevent double-clicks
-          b.disabled = true;
-          b.textContent = '...';
-          
-          const success = await castVote(num);
-          if (success) {
-            await render(); // Refresh immediately after successful vote
-          } else {
-            // Re-enable button if vote failed
-            b.disabled = false;
-            b.textContent = String(num);
-          }
-        };
-        qs('#numbers').appendChild(b);
-      });
+      // Create buttons in shuffled order with hidden numbers
+       numbers.forEach((num, index) => {
+         const b = ce('button','bg-blue-500 text-white font-bold py-2 rounded w-20 h-12', '?');
+         b.id = 'btn-' + num;
+         b.dataset.number = num; // Store the actual number in data attribute
+         b.onclick = async () => {
+           // Disable button during voting to prevent double-clicks
+           b.disabled = true;
+           b.textContent = '...';
+           
+           const success = await castVote(num);
+           if (success) {
+             await render(); // Refresh immediately after successful vote
+           } else {
+             // Re-enable button if vote failed
+             b.disabled = false;
+             b.textContent = '?';
+           }
+         };
+         qs('#numbers').appendChild(b);
+       });
     }
 
     for (let i = 1; i <= 6; i++) {
@@ -148,6 +149,13 @@
       btn.disabled = Boolean(takenBy) || data.voters[currentName]?.has_voted;
       btn.classList.toggle('bg-gray-400', Boolean(takenBy));
       btn.classList.toggle('cursor-not-allowed', btn.disabled);
+      
+      // Show numbers only when all votes are cast
+      if (data.all_voted) {
+        btn.textContent = String(i);
+      } else if (!btn.disabled && btn.textContent !== '...') {
+        btn.textContent = '?';
+      }
     }
 
     const vList = qs('#voterList'); vList.innerHTML = '';
